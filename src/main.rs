@@ -1,4 +1,6 @@
 mod processor;
+pub mod sqlite_pragma;
+pub mod db;
 
 use {
     dotenv::dotenv,
@@ -22,6 +24,9 @@ use {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     dotenv().ok();
     env_logger::init();
+
+    log::info!("🗄️  Initializing database");
+    db::init_database().expect("Failed to initialize database");
 
     let geyser_url = env::var("GEYSER_URL").expect("GEYSER_URL not set");
     let x_token = env::var("X_TOKEN").expect("X_TOKEN not set");

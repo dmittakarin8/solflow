@@ -34,3 +34,6 @@ log = "0.4"
 dashmap = "5.5"
 yellowstone-grpc-proto = { version = "10.0.0", features = ["convert"] }
 rustls = { version = "0.23", features = ["aws-lc-rs"], default-features = false }
+
+# Database
+rusqlite = { version = "0.32", features = ["bundled"] }
