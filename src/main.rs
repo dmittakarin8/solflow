@@ -1,4 +1,7 @@
 mod processor;
+mod state;
+mod trade_extractor;
+mod types;
 pub mod sqlite_pragma;
 pub mod db;
 
@@ -17,7 +20,7 @@ use {
     carbon_bonkswap_decoder::{BonkswapDecoder, PROGRAM_ID as BONKSWAP_PID},
     carbon_jupiter_dca_decoder::{JupiterDcaDecoder, PROGRAM_ID as JUPITER_DCA_PID},
     yellowstone_grpc_proto::geyser::{CommitmentLevel, SubscribeRequestFilterTransactions},
-    crate::processor::NetSolFlowProcessor,
+    crate::{processor::NetSolFlowProcessor, state::TokenRollingState, trade_extractor::TradeExtractor},
 };
 
 #[tokio::main]
@@ -65,16 +68,52 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     let seen_signatures = Arc::new(DashMap::new());
+    let rolling_states: Arc<DashMap<String, TokenRollingState>> = Arc::new(DashMap::new());
 
-    log::info!("🔧 Building Pipeline with 5 DEX Decoders");
+    log::info!("🔧 Building Pipeline with 5 DEX Decoders + Trade Extraction Layer");
 
     Pipeline::builder()
         .datasource(client)
-        .instruction(PumpfunDecoder, NetSolFlowProcessor::new(seen_signatures.clone()))
-        .instruction(PumpSwapDecoder, NetSolFlowProcessor::new(seen_signatures.clone()))
-        .instruction(MoonshotDecoder, NetSolFlowProcessor::new(seen_signatures.clone()))
-        .instruction(BonkswapDecoder, NetSolFlowProcessor::new(seen_signatures.clone()))
-        .instruction(JupiterDcaDecoder, NetSolFlowProcessor::new(seen_signatures.clone()))
+        .instruction(
+            PumpfunDecoder,
+            NetSolFlowProcessor::new(
+                seen_signatures.clone(),
+                rolling_states.clone(),
+                TradeExtractor::extract_from_pumpfun,
+            ),
+        )
+        .instruction(
+            PumpSwapDecoder,
+            NetSolFlowProcessor::new(
+                seen_signatures.clone(),
+                rolling_states.clone(),
+                TradeExtractor::extract_from_pumpswap,
+            ),
+        )
+        .instruction(
+            MoonshotDecoder,
+            NetSolFlowProcessor::new(
+                seen_signatures.clone(),
+                rolling_states.clone(),
+                TradeExtractor::extract_from_moonshot,
+            ),
+        )
+        .instruction(
+            BonkswapDecoder,
+            NetSolFlowProcessor::new(
+                seen_signatures.clone(),
+                rolling_states.clone(),
+                TradeExtractor::extract_from_bonkswap,
+            ),
+        )
+        .instruction(
+            JupiterDcaDecoder,
+            NetSolFlowProcessor::new(
+                seen_signatures.clone(),
+                rolling_states.clone(),
+                TradeExtractor::extract_from_jupiter_dca,
+            ),
+        )
         .build()?
         .run()
         .await?;

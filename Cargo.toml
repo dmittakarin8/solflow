@@ -37,3 +37,6 @@ rustls = { version = "0.23", features = ["aws-lc-rs"], default-features = false 
 
 # Database
 rusqlite = { version = "0.32", features = ["bundled"] }
+
+# Time
+chrono = "0.4"
