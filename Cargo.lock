@@ -367,6 +367,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "aws-lc-rs"
+version = "1.15.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6b5ce75405893cd713f9ab8e297d8e438f624dde7d706108285f7e17a25a180f"
+dependencies = [
+ "aws-lc-sys",
+ "zeroize",
+]
+
+[[package]]
+name = "aws-lc-sys"
+version = "0.34.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "179c3777a8b5e70e90ea426114ffc565b2c1a9f82f6c4a0c5a34aa6ef5e781b6"
+dependencies = [
+ "cc",
+ "cmake",
+ "dunce",
+ "fs_extra",
+]
+
+[[package]]
 name = "axum"
 version = "0.8.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -620,6 +642,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b35204fbdc0b3f4446b89fc1ac2cf84a8a68971995d0bf2e925ec7cd960f9cb3"
 
 [[package]]
+name = "carbon-bonkswap-decoder"
+version = "0.12.0"
+dependencies = [
+ "borsh 1.6.0",
+ "carbon-core",
+ "solana-account 3.2.0",
+ "solana-instruction 3.1.0",
+ "solana-pubkey 3.0.0",
+]
+
+[[package]]
 name = "carbon-core"
 version = "0.12.0"
 dependencies = [
@@ -649,12 +682,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "carbon-jupiter-swap-decoder"
+name = "carbon-jupiter-dca-decoder"
 version = "0.12.0"
 dependencies = [
- "borsh 1.6.0",
  "carbon-core",
- "serde_json",
+ "serde",
  "solana-account 3.2.0",
  "solana-instruction 3.1.0",
  "solana-pubkey 3.0.0",
@@ -663,6 +695,18 @@ dependencies = [
 [[package]]
 name = "carbon-macros"
 version = "0.12.0"
+
+[[package]]
+name = "carbon-moonshot-decoder"
+version = "0.12.0"
+dependencies = [
+ "carbon-core",
+ "serde",
+ "serde-big-array",
+ "solana-account 3.2.0",
+ "solana-instruction 3.1.0",
+ "solana-pubkey 3.0.0",
+]
 
 [[package]]
 name = "carbon-proc-macros"
@@ -677,7 +721,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "carbon-pumpfun-decoder"
+name = "carbon-pump-swap-decoder"
 version = "0.12.0"
 dependencies = [
  "carbon-core",
@@ -688,12 +732,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "carbon-raydium-amm-v4-decoder"
+name = "carbon-pumpfun-decoder"
 version = "0.12.0"
 dependencies = [
  "carbon-core",
  "serde",
- "serde-big-array",
  "solana-account 3.2.0",
  "solana-instruction 3.1.0",
  "solana-pubkey 3.0.0",
@@ -769,6 +812,15 @@ checksum = "773f3b9af64447d2ce9850330c473515014aa235e6a783b02db81ff39e4a3dad"
 dependencies = [
  "crypto-common",
  "inout",
+]
+
+[[package]]
+name = "cmake"
+version = "0.1.54"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e7caa3f9de89ddbe2c607f4101924c5abec803763ae9534e4f4d7d8f84aa81f0"
+dependencies = [
+ "cc",
 ]
 
 [[package]]
@@ -1049,6 +1101,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "77c90badedccf4105eca100756a0b1289e191f6fcbdadd3cee1d2f614f97da8f"
 
 [[package]]
+name = "dunce"
+version = "1.0.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "92773504d58c093f6de2459af4af33faa518c13451eb8f2b5698ed3d36e7c813"
+
+[[package]]
 name = "ecdsa"
 version = "0.16.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1298,6 +1356,12 @@ name = "foreign-types-shared"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "00b0228411908ca8685dba7fc2cdd70ec9990a6e753e89b6ac91a84c40fbaf4b"
+
+[[package]]
+name = "fs_extra"
+version = "1.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "42703706b716c37f96a77aea830392ad231f44c9e9a67872fa5548707e11b11c"
 
 [[package]]
 name = "futures"
@@ -2536,6 +2600,7 @@ version = "0.23.35"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "533f54bc6a7d4f647e46ad909549eda97bf5afc1585190ef692b4286b198bd8f"
 dependencies = [
+ "aws-lc-rs",
  "log",
  "once_cell",
  "rustls-pki-types",
@@ -2571,6 +2636,7 @@ version = "0.103.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2ffdfa2f5286e2247234e03f680868ac2815974dc39e00ea15adc445d0aafe52"
 dependencies = [
+ "aws-lc-rs",
  "ring",
  "rustls-pki-types",
  "untrusted",
@@ -5540,22 +5606,26 @@ name = "solflow"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "carbon-bonkswap-decoder",
  "carbon-core",
- "carbon-jupiter-swap-decoder",
+ "carbon-jupiter-dca-decoder",
  "carbon-macros",
+ "carbon-moonshot-decoder",
+ "carbon-pump-swap-decoder",
  "carbon-pumpfun-decoder",
- "carbon-raydium-amm-v4-decoder",
  "carbon-yellowstone-grpc-datasource",
  "dashmap",
  "dotenv",
  "env_logger 0.11.8",
  "log",
+ "rustls",
  "serde",
  "serde_json",
  "solana-program 2.3.0",
  "solana-sdk",
  "solana-transaction-status 2.3.13",
  "tokio",
+ "yellowstone-grpc-proto",
 ]
 
 [[package]]
