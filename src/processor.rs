@@ -83,15 +83,29 @@ where
                 .or_insert_with(|| TokenRollingState::new(mint.clone()));
 
             rolling_state.add_trade(trade_event.clone());
-
             rolling_state.evict_old_trades(current_timestamp);
 
+            // Phase 4: Compute rolling metrics
+            let metrics = rolling_state.compute_rolling_metrics();
+            
+            // Phase 4: Self-verification (optional, logs warnings on failures)
+            rolling_state.verify_metrics(&metrics);
+
             log::info!(
-                "📊 TRADE EXTRACTED | Mint: {} | Direction: {:?} | SOL: {:.4}",
+                "📊 TRADE | Mint: {} | Dir: {:?} | SOL: {:.4} | Bot: {} | DCA: {} | NetFlow300s: {:.4} | Wallets300s: {} | DCA300s: {}",
                 mint,
                 trade_event.direction,
-                trade_event.sol_amount
+                trade_event.sol_amount,
+                trade_event.is_bot,
+                trade_event.is_dca,
+                metrics.net_flow_300s_sol,
+                metrics.unique_wallets_300s,
+                metrics.dca_buys_300s
             );
+            
+            // Phase 5 integration point (placeholder)
+            // TODO: Pass metrics to database writer
+            // db::write_aggregated_state(&mint, &metrics).await?;
         }
 
         Ok(())

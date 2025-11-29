@@ -28,6 +28,8 @@ impl TradeExtractor {
             token_decimals: 6,
             user_account: accounts.user.to_string(),
             source_program: "Pumpfun".to_string(),
+            is_bot: false,
+            is_dca: false,
         })
     }
 
@@ -46,6 +48,8 @@ impl TradeExtractor {
             token_decimals: 6,
             user_account: accounts.user.to_string(),
             source_program: "Pumpfun".to_string(),
+            is_bot: false,
+            is_dca: false,
         })
     }
 
@@ -62,6 +66,8 @@ impl TradeExtractor {
             token_decimals: 6,
             user_account: event.user.to_string(),
             source_program: "PumpSwap".to_string(),
+            is_bot: false,
+            is_dca: false,
         })
     }
 
@@ -78,6 +84,8 @@ impl TradeExtractor {
             token_decimals: 6,
             user_account: event.user.to_string(),
             source_program: "PumpSwap".to_string(),
+            is_bot: false,
+            is_dca: false,
         })
     }
 
@@ -104,6 +112,8 @@ impl TradeExtractor {
             token_decimals: 6,
             user_account: accounts.sender.to_string(),
             source_program: "Moonshot".to_string(),
+            is_bot: false,
+            is_dca: false,
         })
     }
 
@@ -122,6 +132,8 @@ impl TradeExtractor {
             token_decimals: 6,
             user_account: accounts.sender.to_string(),
             source_program: "Moonshot".to_string(),
+            is_bot: false,
+            is_dca: false,
         })
     }
 
@@ -166,6 +178,8 @@ impl TradeExtractor {
             token_decimals: 6,
             user_account: event.user_key.to_string(),
             source_program: "JupiterDCA".to_string(),
+            is_bot: false,
+            is_dca: true,
         })
     }
 

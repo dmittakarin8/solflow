@@ -43,6 +43,14 @@ pub struct TradeEvent {
     pub token_decimals: u8,
     pub user_account: String,
     pub source_program: String,
+    
+    /// Phase 4: Bot detection flag
+    /// True if this trade exhibits bot-like characteristics (rapid trading, MEV patterns)
+    pub is_bot: bool,
+    
+    /// Phase 4: DCA flag
+    /// True if this trade comes from JupiterDCA program
+    pub is_dca: bool,
 }
 
 /// Aggregated token state matching the token_aggregates table schema
@@ -253,12 +261,15 @@ mod tests {
             unique_wallets_300s: 12,
             bot_wallets_count_300s: 2,
             bot_trades_count_300s: 6,
-            // Phase 6: DCA Rolling Windows
+            bot_flow_300s_sol: 5.0,
             dca_buys_60s: 1,
             dca_buys_300s: 3,
             dca_buys_900s: 8,
             dca_buys_3600s: 15,
             dca_buys_14400s: 30,
+            dca_flow_300s_sol: 10.0,
+            dca_unique_wallets_300s: 2,
+            dca_ratio_300s: 0.22,
         }
     }
 
@@ -430,11 +441,15 @@ mod tests {
             unique_wallets_300s: 0,
             bot_wallets_count_300s: 0,
             bot_trades_count_300s: 0,
+            bot_flow_300s_sol: 0.0,
             dca_buys_60s: 0,
             dca_buys_300s: 0,
             dca_buys_900s: 0,
             dca_buys_3600s: 0,
             dca_buys_14400s: 0,
+            dca_flow_300s_sol: 0.0,
+            dca_unique_wallets_300s: 0,
+            dca_ratio_300s: 0.0,
         };
 
         let mint = "zero_trades_mint";
@@ -466,11 +481,15 @@ mod tests {
             unique_wallets_300s: 8,
             bot_wallets_count_300s: 1,
             bot_trades_count_300s: 3,
+            bot_flow_300s_sol: -5.0,
             dca_buys_60s: 0,
             dca_buys_300s: 1,
             dca_buys_900s: 2,
             dca_buys_3600s: 5,
             dca_buys_14400s: 10,
+            dca_flow_300s_sol: 1.0,
+            dca_unique_wallets_300s: 1,
+            dca_ratio_300s: -0.033,
         };
 
         let mint = "negative_flow_mint";
