@@ -15,7 +15,6 @@ use {
     carbon_yellowstone_grpc_datasource::{
         BlockFilters, YellowstoneGrpcClientConfig, YellowstoneGrpcGeyserClient,
     },
-    carbon_pumpfun_decoder::{PumpfunDecoder, PROGRAM_ID as PUMPFUN_PID},
     carbon_pump_swap_decoder::{PumpSwapDecoder, PROGRAM_ID as PUMPSWAP_PID},
     carbon_moonshot_decoder::{MoonshotDecoder, PROGRAM_ID as MOONSHOT_PID},
     carbon_bonkswap_decoder::{BonkswapDecoder, PROGRAM_ID as BONKSWAP_PID},
@@ -45,7 +44,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             vote: Some(false),
             failed: Some(false),
             account_include: vec![
-                PUMPFUN_PID.to_string(),
                 PUMPSWAP_PID.to_string(),
                 MOONSHOT_PID.to_string(),
                 BONKSWAP_PID.to_string(),
@@ -55,7 +53,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         },
     );
 
-    log::info!("🎯 Filtering for 5 DEX Program IDs (Conviction List)");
+    log::info!("🎯 Filtering for 4 DEX Program IDs (PumpSwap + Others)");
 
     let client = YellowstoneGrpcGeyserClient::new(
         geyser_url,
@@ -80,19 +78,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         db::run_write_loop(writer_rx).await;
     });
 
-    log::info!("🔧 Building Pipeline with 5 DEX Decoders + Trade Extraction Layer");
+    log::info!("🔧 Building Pipeline with 4 DEX Decoders + Trade Extraction Layer");
 
     Pipeline::builder()
         .datasource(client)
-        .instruction(
-            PumpfunDecoder,
-            NetSolFlowProcessor::new(
-                seen_signatures.clone(),
-                rolling_states.clone(),
-                TradeExtractor::extract_from_pumpfun,
-                writer_tx.clone(),
-            ),
-        )
         .instruction(
             PumpSwapDecoder,
             NetSolFlowProcessor::new(
