@@ -70,6 +70,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let seen_signatures = Arc::new(DashMap::new());
     let rolling_states: Arc<DashMap<String, TokenRollingState>> = Arc::new(DashMap::new());
 
+    // Phase 5: Create channel for database writes
+    let (writer_tx, writer_rx) = tokio::sync::mpsc::channel(1000);
+    
+    // Phase 5: Spawn background write loop
+    log::info!("📝 Spawning database write loop");
+    tokio::spawn(async move {
+        db::run_write_loop(writer_rx).await;
+    });
+
     log::info!("🔧 Building Pipeline with 5 DEX Decoders + Trade Extraction Layer");
 
     Pipeline::builder()
@@ -80,6 +89,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 seen_signatures.clone(),
                 rolling_states.clone(),
                 TradeExtractor::extract_from_pumpfun,
+                writer_tx.clone(),
             ),
         )
         .instruction(
@@ -88,6 +98,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 seen_signatures.clone(),
                 rolling_states.clone(),
                 TradeExtractor::extract_from_pumpswap,
+                writer_tx.clone(),
             ),
         )
         .instruction(
@@ -96,6 +107,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 seen_signatures.clone(),
                 rolling_states.clone(),
                 TradeExtractor::extract_from_moonshot,
+                writer_tx.clone(),
             ),
         )
         .instruction(
@@ -104,6 +116,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 seen_signatures.clone(),
                 rolling_states.clone(),
                 TradeExtractor::extract_from_bonkswap,
+                writer_tx.clone(),
             ),
         )
         .instruction(
@@ -112,6 +125,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 seen_signatures.clone(),
                 rolling_states.clone(),
                 TradeExtractor::extract_from_jupiter_dca,
+                writer_tx.clone(),
             ),
         )
         .build()?

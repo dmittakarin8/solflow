@@ -1,5 +1,5 @@
 use {
-    crate::{state::TokenRollingState, types::TradeEvent},
+    crate::{state::TokenRollingState, types::TradeEvent, db::WriteRequest},
     async_trait::async_trait,
     carbon_core::{
         error::CarbonResult,
@@ -9,12 +9,14 @@ use {
     },
     dashmap::DashMap,
     std::{marker::PhantomData, sync::Arc},
+    tokio::sync::mpsc,
 };
 
 pub struct NetSolFlowProcessor<T> {
     pub seen_signatures: Arc<DashMap<String, bool>>,
     pub rolling_states: Arc<DashMap<String, TokenRollingState>>,
     pub extractor: fn(&InstructionProcessorInputType<T>) -> Option<TradeEvent>,
+    pub writer: mpsc::Sender<WriteRequest>,
     _phantom: PhantomData<T>,
 }
 
@@ -23,11 +25,13 @@ impl<T> NetSolFlowProcessor<T> {
         seen_signatures: Arc<DashMap<String, bool>>,
         rolling_states: Arc<DashMap<String, TokenRollingState>>,
         extractor: fn(&InstructionProcessorInputType<T>) -> Option<TradeEvent>,
+        writer: mpsc::Sender<WriteRequest>,
     ) -> Self {
         Self {
             seen_signatures,
             rolling_states,
             extractor,
+            writer,
             _phantom: PhantomData,
         }
     }
@@ -103,9 +107,18 @@ where
                 metrics.dca_buys_300s
             );
             
-            // Phase 5 integration point (placeholder)
-            // TODO: Pass metrics to database writer
-            // db::write_aggregated_state(&mint, &metrics).await?;
+            // Phase 5: Send metrics to database writer (non-blocking)
+            if let Err(e) = self.writer.send(WriteRequest::Metrics {
+                mint: mint.clone(),
+                metrics: metrics.clone(),
+            }).await {
+                log::warn!("⚠️  Failed to send metrics to writer: {}", e);
+            }
+            
+            // Phase 5: Send trade event to database writer (non-blocking)
+            if let Err(e) = self.writer.send(WriteRequest::Trade(trade_event.clone())).await {
+                log::warn!("⚠️  Failed to send trade to writer: {}", e);
+            }
         }
 
         Ok(())
