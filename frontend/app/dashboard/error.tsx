@@ -98,7 +98,7 @@ cargo run --release`}</code>
           <p className="font-medium">Quick Checks:</p>
           <ul className="list-disc list-inside space-y-1">
             <li>Rust backend is running: <code className="bg-muted px-1 rounded">cargo run --release</code></li>
-            <li>Database path is correct in <code className="bg-muted px-1 rounded">.env.local</code></li>
+            <li>Database path is correct in <code className="bg-muted px-1 rounded">.env</code></li>
             <li>Rust backend has completed initialization (check logs for "✅ Initial schema applied")</li>
           </ul>
         </div>

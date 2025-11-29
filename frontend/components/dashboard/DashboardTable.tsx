@@ -42,8 +42,8 @@ export function DashboardTable({
         <table className="w-full">
           <thead className="bg-muted/50 sticky top-0 z-10">
             <tr>
-              <th className="px-3 py-3 text-left w-12">
-                <span className="text-xs font-medium text-muted-foreground uppercase">★</span>
+              <th className="px-3 py-3 text-left">
+                <span className="text-xs font-medium text-muted-foreground uppercase">Actions</span>
               </th>
               <th
                 className={headerClass}
@@ -55,18 +55,26 @@ export function DashboardTable({
               </th>
               <th
                 className={headerClass}
-                onClick={() => onSort('net_flow_300s')}
+                onClick={() => onSort('net_flow_900s')}
               >
                 <div className="flex items-center gap-1">
-                  Flow 5m {getSortIcon('net_flow_300s')}
+                  Flow 15m {getSortIcon('net_flow_900s')}
                 </div>
               </th>
               <th
                 className={headerClass}
-                onClick={() => onSort('net_flow_60s')}
+                onClick={() => onSort('net_flow_3600s')}
               >
                 <div className="flex items-center gap-1">
-                  Flow 1m {getSortIcon('net_flow_60s')}
+                  Flow 1h {getSortIcon('net_flow_3600s')}
+                </div>
+              </th>
+              <th
+                className={headerClass}
+                onClick={() => onSort('net_flow_14400s')}
+              >
+                <div className="flex items-center gap-1">
+                  Flow 4h {getSortIcon('net_flow_14400s')}
                 </div>
               </th>
               <th

@@ -18,7 +18,7 @@ interface DashboardClientProps {
 export function DashboardClient({ initialTokens }: DashboardClientProps) {
   const [tokens, setTokens] = useState<DashboardToken[]>(initialTokens);
   const [sortConfig, setSortConfig] = useState<SortConfig>({
-    key: 'net_flow_300s',
+    key: 'net_flow_900s',
     direction: 'desc',
   });
   const { followed, isLoaded } = useFollowedTokens();
@@ -36,7 +36,9 @@ export function DashboardClient({ initialTokens }: DashboardClientProps) {
     }
   }, []);
 
-  usePolling(fetchTokens, 10000, true); // Poll every 10s
+  // Use configurable refresh interval (default: 10s)
+  const refreshInterval = Number(process.env.NEXT_PUBLIC_DASHBOARD_REFRESH_MS) || 10000;
+  usePolling(fetchTokens, refreshInterval, true);
 
   // Sorting logic
   const sortedTokens = useMemo(() => {

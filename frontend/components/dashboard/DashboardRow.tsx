@@ -5,9 +5,8 @@
 
 'use client';
 
-import Link from 'next/link';
 import { DashboardToken } from '@/lib/types';
-import { FollowButton } from './FollowButton';
+import { ActionBar } from './ActionBar';
 import { SignalBadge } from './SignalBadge';
 import { FlowSparkline } from './FlowSparkline';
 import { formatSOL, formatAddress } from '@/lib/client/format';
@@ -19,25 +18,30 @@ interface DashboardRowProps {
 
 export function DashboardRow({ token, isFollowed }: DashboardRowProps) {
   const netFlows = [
-    token.net_flow_60s,
-    token.net_flow_300s,
     token.net_flow_900s,
     token.net_flow_3600s,
     token.net_flow_7200s,
     token.net_flow_14400s,
   ];
 
-  const flowColorClass =
-    token.net_flow_300s > 0
+  const flow15mColorClass =
+    token.net_flow_900s > 0
       ? 'text-green-500'
-      : token.net_flow_300s < 0
+      : token.net_flow_900s < 0
       ? 'text-red-500'
       : 'text-muted-foreground';
 
-  const flow60ColorClass =
-    token.net_flow_60s > 0
+  const flow1hColorClass =
+    token.net_flow_3600s > 0
       ? 'text-green-500'
-      : token.net_flow_60s < 0
+      : token.net_flow_3600s < 0
+      ? 'text-red-500'
+      : 'text-muted-foreground';
+
+  const flow4hColorClass =
+    token.net_flow_14400s > 0
+      ? 'text-green-500'
+      : token.net_flow_14400s < 0
       ? 'text-red-500'
       : 'text-muted-foreground';
 
@@ -47,19 +51,16 @@ export function DashboardRow({ token, isFollowed }: DashboardRowProps) {
         isFollowed ? 'bg-primary/5' : ''
       }`}
     >
-      {/* Follow Button */}
+      {/* Action Bar */}
       <td className="px-3 py-2">
-        <FollowButton mint={token.mint} />
+        <ActionBar mint={token.mint} />
       </td>
 
       {/* Token Info */}
       <td className="px-3 py-2">
-        <Link
-          href={`/token/${token.mint}`}
-          className="hover:underline font-mono text-sm"
-        >
+        <div className="font-mono text-sm">
           {token.symbol || formatAddress(token.mint)}
-        </Link>
+        </div>
         {token.name && (
           <div className="text-xs text-muted-foreground truncate max-w-[150px]">
             {token.name}
@@ -67,14 +68,19 @@ export function DashboardRow({ token, isFollowed }: DashboardRowProps) {
         )}
       </td>
 
-      {/* Net Flow 5m */}
-      <td className={`px-3 py-2 font-mono text-sm font-semibold ${flowColorClass}`}>
-        {formatSOL(token.net_flow_300s)}
+      {/* Net Flow 15m */}
+      <td className={`px-3 py-2 font-mono text-sm font-semibold ${flow15mColorClass}`}>
+        {formatSOL(token.net_flow_900s)}
       </td>
 
-      {/* Net Flow 1m */}
-      <td className={`px-3 py-2 font-mono text-sm ${flow60ColorClass}`}>
-        {formatSOL(token.net_flow_60s)}
+      {/* Net Flow 1h */}
+      <td className={`px-3 py-2 font-mono text-sm ${flow1hColorClass}`}>
+        {formatSOL(token.net_flow_3600s)}
+      </td>
+
+      {/* Net Flow 4h */}
+      <td className={`px-3 py-2 font-mono text-sm ${flow4hColorClass}`}>
+        {formatSOL(token.net_flow_14400s)}
       </td>
 
       {/* Wallets */}
