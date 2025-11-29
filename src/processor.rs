@@ -1,5 +1,5 @@
 use {
-    crate::{state::TokenRollingState, types::TradeEvent, db::WriteRequest},
+    crate::{state::TokenRollingState, types::TradeEvent, db::WriteRequest, signals},
     async_trait::async_trait,
     carbon_core::{
         error::CarbonResult,
@@ -118,6 +118,27 @@ where
             // Phase 5: Send trade event to database writer (non-blocking)
             if let Err(e) = self.writer.send(WriteRequest::Trade(trade_event.clone())).await {
                 log::warn!("⚠️  Failed to send trade to writer: {}", e);
+            }
+            
+            // Phase 6: Evaluate signals
+            // Get recent trades from in-memory rolling state (not DB) for performance
+            let recent_trades: Vec<TradeEvent> = rolling_state.trades_300s.clone();
+            let triggered_signals = signals::evaluate_signals(&mint, &metrics, &recent_trades);
+            
+            // Log and send signals to database
+            for signal in triggered_signals {
+                log::info!(
+                    "🔔 SIGNAL | Mint: {} | Type: {:?} | Strength: {:.2} | Window: {} | Metadata: {}",
+                    signal.mint,
+                    signal.signal_type,
+                    signal.strength,
+                    signal.window,
+                    signal.metadata
+                );
+                
+                if let Err(e) = self.writer.send(WriteRequest::Signal(signal)).await {
+                    log::warn!("⚠️  Failed to send signal to writer: {}", e);
+                }
             }
         }
 

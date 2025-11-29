@@ -6,7 +6,7 @@
 use rusqlite::{Connection, params};
 use std::{env, error::Error, fs, path::Path};
 use tokio::sync::mpsc;
-use crate::{state::RollingMetrics, types::TradeEvent};
+use crate::{state::RollingMetrics, types::TradeEvent, signals::Signal};
 
 pub use crate::sqlite_pragma;
 
@@ -17,6 +17,8 @@ pub enum WriteRequest {
     Metrics { mint: String, metrics: RollingMetrics },
     /// Append trade event to trades table
     Trade(TradeEvent),
+    /// Phase 6: Append signal event to signals table
+    Signal(Signal),
 }
 
 /// Initialize database with WAL mode and migrations
@@ -147,6 +149,82 @@ pub fn append_trade(conn: &Connection, event: &TradeEvent) -> Result<(), Box<dyn
     Ok(())
 }
 
+/// Phase 6: Write signal to token_signals table
+pub fn write_signal(conn: &Connection, signal: &Signal) -> Result<(), Box<dyn Error>> {
+    let metadata_str = signal.metadata.to_string();
+    
+    conn.execute(
+        "INSERT INTO token_signals (
+            mint, signal_type, strength, window, timestamp, metadata
+        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        params![
+            signal.mint,
+            signal.signal_type.as_str(),
+            signal.strength,
+            signal.window,
+            signal.timestamp,
+            metadata_str,
+        ],
+    )?;
+    
+    Ok(())
+}
+
+/// Phase 6: Get recent trades for a token within a time window
+///
+/// Used by signals engine to compute wallet concentration and other metrics.
+///
+/// # Arguments
+/// * `conn` - Database connection
+/// * `mint` - Token mint address
+/// * `window_seconds` - Time window in seconds (e.g., 300 for 5 minutes)
+///
+/// # Returns
+/// Vector of recent trade events within the window
+pub fn get_recent_trades(conn: &Connection, mint: &str, window_seconds: i64) -> Result<Vec<TradeEvent>, Box<dyn Error>> {
+    let now = chrono::Utc::now().timestamp();
+    let cutoff = now - window_seconds;
+    
+    let mut stmt = conn.prepare(
+        "SELECT mint, timestamp, wallet, side, sol_amount, is_bot, is_dca
+         FROM token_trades
+         WHERE mint = ?1 AND timestamp >= ?2
+         ORDER BY timestamp DESC"
+    )?;
+    
+    let trades = stmt.query_map(params![mint, cutoff], |row| {
+        let side: String = row.get(3)?;
+        let direction = match side.as_str() {
+            "buy" => crate::types::TradeDirection::Buy,
+            "sell" => crate::types::TradeDirection::Sell,
+            _ => crate::types::TradeDirection::Unknown,
+        };
+        
+        let is_bot: i32 = row.get(5)?;
+        let is_dca: i32 = row.get(6)?;
+        
+        Ok(TradeEvent {
+            mint: row.get(0)?,
+            timestamp: row.get(1)?,
+            user_account: row.get(2)?,
+            direction,
+            sol_amount: row.get(4)?,
+            token_amount: 0.0, // Not stored in DB
+            token_decimals: 0, // Not stored in DB
+            source_program: if is_dca == 1 { "JupiterDCA" } else { "Unknown" }.to_string(),
+            is_bot: is_bot == 1,
+            is_dca: is_dca == 1,
+        })
+    })?;
+    
+    let mut result = Vec::new();
+    for trade in trades {
+        result.push(trade?);
+    }
+    
+    Ok(result)
+}
+
 /// Background write loop for async batching
 /// 
 /// Consumes WriteRequests from channel and batches them into transactions.
@@ -219,6 +297,11 @@ fn flush_batch(conn: &Connection, batch: &mut Vec<WriteRequest>) -> Result<(), B
             WriteRequest::Trade(event) => {
                 if let Err(e) = append_trade(&tx, &event) {
                     log::warn!("⚠️  Failed to append trade for {}: {}", event.mint, e);
+                }
+            }
+            WriteRequest::Signal(signal) => {
+                if let Err(e) = write_signal(&tx, &signal) {
+                    log::warn!("⚠️  Failed to write signal for {}: {}", signal.mint, e);
                 }
             }
         }

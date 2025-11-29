@@ -2,6 +2,7 @@ mod processor;
 mod state;
 mod trade_extractor;
 mod types;
+mod signals;
 pub mod sqlite_pragma;
 pub mod db;
 
