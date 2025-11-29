@@ -12,3 +12,7 @@ target/
 # Added by cargo
 
 /target
+
+
+test_solflow.db-shm
+test_solflow.db-wal
