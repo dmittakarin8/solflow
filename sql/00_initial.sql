@@ -21,6 +21,7 @@ PRAGMA synchronous = NORMAL;
 -- TABLE: token_metadata
 -- ═══════════════════════════════════════════════════════════════════════
 -- Stores basic token information and launch platform metadata
+-- Frontend fetches price_usd, market_cap, and token_age from DexScreener
 
 CREATE TABLE IF NOT EXISTS token_metadata (
     mint                TEXT PRIMARY KEY,
@@ -29,6 +30,9 @@ CREATE TABLE IF NOT EXISTS token_metadata (
     decimals            INTEGER NOT NULL,
     launch_platform     TEXT,
     pair_created_at     INTEGER,
+    price_usd           REAL,
+    market_cap          REAL,
+    token_age           INTEGER,
     created_at          INTEGER NOT NULL,
     updated_at          INTEGER NOT NULL,
     CHECK (decimals >= 0 AND decimals <= 18)
@@ -36,6 +40,12 @@ CREATE TABLE IF NOT EXISTS token_metadata (
 
 CREATE INDEX IF NOT EXISTS idx_token_metadata_created_at
     ON token_metadata (created_at);
+
+CREATE INDEX IF NOT EXISTS idx_token_metadata_price_usd
+    ON token_metadata (price_usd DESC);
+
+CREATE INDEX IF NOT EXISTS idx_token_metadata_market_cap
+    ON token_metadata (market_cap DESC);
 
 -- ═══════════════════════════════════════════════════════════════════════
 -- TABLE: token_rolling_metrics
@@ -140,6 +150,21 @@ CREATE INDEX IF NOT EXISTS idx_token_signals_strength
 
 CREATE INDEX IF NOT EXISTS idx_token_signals_mint_timestamp 
     ON token_signals(mint, timestamp DESC);
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- TABLE: blocklist
+-- ═══════════════════════════════════════════════════════════════════════
+-- Stores token mints that should be filtered from dashboard queries
+-- Used to hide spam tokens, rugs, or other unwanted tokens
+
+CREATE TABLE IF NOT EXISTS blocklist (
+    mint            TEXT PRIMARY KEY,
+    reason          TEXT,
+    added_at        INTEGER DEFAULT (strftime('%s', 'now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_blocklist_added_at 
+    ON blocklist(added_at DESC);
 
 -- ═══════════════════════════════════════════════════════════════════════
 -- END OF SCHEMA
