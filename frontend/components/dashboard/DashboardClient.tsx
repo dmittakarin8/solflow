@@ -5,11 +5,12 @@
 
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { DashboardToken, SortConfig } from '@/lib/types';
 import { DashboardTable } from './DashboardTable';
 import { usePolling } from '@/hooks/usePolling';
 import { useFollowedTokens } from '@/hooks/useFollowedTokens';
+import { useDexScreenerPolling } from '@/hooks/useDexScreenerPolling';
 
 interface DashboardClientProps {
   initialTokens: DashboardToken[];
@@ -22,6 +23,9 @@ export function DashboardClient({ initialTokens }: DashboardClientProps) {
     direction: 'desc',
   });
   const { followed, isLoaded } = useFollowedTokens();
+
+  // Start DexScreener polling for followed tokens
+  useDexScreenerPolling();
 
   // Polling for live updates
   const fetchTokens = useCallback(async () => {
@@ -39,6 +43,25 @@ export function DashboardClient({ initialTokens }: DashboardClientProps) {
   // Use configurable refresh interval (default: 10s)
   const refreshInterval = Number(process.env.NEXT_PUBLIC_DASHBOARD_REFRESH_MS) || 10000;
   usePolling(fetchTokens, refreshInterval, true);
+
+  // Listen for token updates and blocks
+  useEffect(() => {
+    const handleTokenUpdate = () => {
+      fetchTokens();
+    };
+
+    const handleTokenBlock = () => {
+      fetchTokens();
+    };
+
+    window.addEventListener('token-data-updated', handleTokenUpdate);
+    window.addEventListener('token-blocked', handleTokenBlock);
+
+    return () => {
+      window.removeEventListener('token-data-updated', handleTokenUpdate);
+      window.removeEventListener('token-blocked', handleTokenBlock);
+    };
+  }, [fetchTokens]);
 
   // Sorting logic
   const sortedTokens = useMemo(() => {

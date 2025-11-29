@@ -74,6 +74,9 @@ export function getDashboardTokens(
         trm.dca_ratio_300s,
         tm.symbol,
         tm.name,
+        tm.price_usd,
+        tm.market_cap,
+        tm.token_age,
         (SELECT signal_type 
          FROM token_signals 
          WHERE mint = trm.mint 
@@ -85,6 +88,7 @@ export function getDashboardTokens(
       FROM token_rolling_metrics trm
       LEFT JOIN token_metadata tm ON trm.mint = tm.mint
       WHERE trm.updated_at >= ?
+        AND NOT EXISTS (SELECT 1 FROM blocklist WHERE mint = trm.mint)
       ORDER BY trm.net_flow_300s DESC
       LIMIT ?
     `;
@@ -110,6 +114,9 @@ export function getDashboardTokens(
     dca_ratio_300s: row.dca_ratio_300s,
     symbol: row.symbol || undefined,
     name: row.name || undefined,
+    price_usd: row.price_usd !== null ? row.price_usd : null,
+    market_cap: row.market_cap !== null ? row.market_cap : null,
+    token_age: row.token_age !== null ? row.token_age : null,
     latest_signal_type: row.latest_signal_type || null,
     latest_signal_strength: row.latest_signal_strength || null,
   }));
@@ -142,6 +149,9 @@ export function getTokenMetadata(mint: string): TokenMetadata | null {
       decimals: row.decimals,
       launch_platform: row.launch_platform,
       pair_created_at: row.pair_created_at,
+      price_usd: row.price_usd !== null ? row.price_usd : null,
+      market_cap: row.market_cap !== null ? row.market_cap : null,
+      token_age: row.token_age !== null ? row.token_age : null,
       created_at: row.created_at,
       updated_at: row.updated_at,
     };
@@ -311,6 +321,9 @@ export function getMultipleTokenMetadata(mints: string[]): Record<string, TokenM
         decimals: row.decimals,
         launch_platform: row.launch_platform,
         pair_created_at: row.pair_created_at,
+        price_usd: row.price_usd !== null ? row.price_usd : null,
+        market_cap: row.market_cap !== null ? row.market_cap : null,
+        token_age: row.token_age !== null ? row.token_age : null,
         created_at: row.created_at,
         updated_at: row.updated_at,
       };

@@ -14,6 +14,9 @@ export interface TokenMetadata {
   decimals: number;
   launch_platform: string | null;
   pair_created_at: number | null;
+  price_usd: number | null;
+  market_cap: number | null;
+  token_age: number | null;
   created_at: number;
   updated_at: number;
 }
@@ -129,6 +132,9 @@ export type SignalMetadata =
 export interface DashboardToken extends TokenRollingMetrics {
   symbol?: string;
   name?: string;
+  price_usd?: number | null;
+  market_cap?: number | null;
+  token_age?: number | null;
   latest_signal_type: SignalType | null;
   latest_signal_strength: number | null;
 }

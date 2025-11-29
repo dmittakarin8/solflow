@@ -93,6 +93,30 @@ export function DashboardTable({
                   DCA {getSortIcon('dca_unique_wallets_300s')}
                 </div>
               </th>
+              <th
+                className={headerClass}
+                onClick={() => onSort('price_usd')}
+              >
+                <div className="flex items-center gap-1">
+                  Price {getSortIcon('price_usd')}
+                </div>
+              </th>
+              <th
+                className={headerClass}
+                onClick={() => onSort('market_cap')}
+              >
+                <div className="flex items-center gap-1">
+                  Market Cap {getSortIcon('market_cap')}
+                </div>
+              </th>
+              <th
+                className={headerClass}
+                onClick={() => onSort('token_age')}
+              >
+                <div className="flex items-center gap-1">
+                  Age {getSortIcon('token_age')}
+                </div>
+              </th>
               <th className="px-3 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 Signals
               </th>

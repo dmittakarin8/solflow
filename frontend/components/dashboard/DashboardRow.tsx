@@ -10,6 +10,7 @@ import { ActionBar } from './ActionBar';
 import { SignalBadge } from './SignalBadge';
 import { FlowSparkline } from './FlowSparkline';
 import { formatSOL, formatAddress } from '@/lib/client/format';
+import { formatPrice, formatMarketCap, formatTokenAge } from '@/lib/client/dexscreener';
 
 interface DashboardRowProps {
   token: DashboardToken;
@@ -104,6 +105,21 @@ export function DashboardRow({ token, isFollowed }: DashboardRowProps) {
         ) : (
           <span className="text-muted-foreground">—</span>
         )}
+      </td>
+
+      {/* Price */}
+      <td className="px-3 py-2 font-mono text-sm">
+        {formatPrice(token.price_usd ?? null)}
+      </td>
+
+      {/* Market Cap */}
+      <td className="px-3 py-2 font-mono text-sm">
+        {formatMarketCap(token.market_cap ?? null)}
+      </td>
+
+      {/* Token Age */}
+      <td className="px-3 py-2 text-sm">
+        {formatTokenAge(token.token_age ?? null)}
       </td>
 
       {/* Signals */}
