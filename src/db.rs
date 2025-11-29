@@ -4,7 +4,7 @@
 //! Non-blocking async write loop with batching support.
 
 use rusqlite::{Connection, params};
-use std::{env, error::Error, fs, path::Path};
+use std::{env, error::Error};
 use tokio::sync::mpsc;
 use crate::{state::RollingMetrics, types::TradeEvent, signals::Signal};
 
@@ -21,58 +21,77 @@ pub enum WriteRequest {
     Signal(Signal),
 }
 
-/// Initialize database with WAL mode and migrations
+/// Initialize database with single consolidated schema
 pub fn init_database() -> Result<(), Box<dyn Error>> {
     let db_path = env::var("SOLFLOW_DB_PATH")
         .map_err(|_| "SOLFLOW_DB_PATH environment variable not set")?;
 
     let conn = Connection::open(&db_path)?;
     
-    // Enable WAL mode for better concurrency
-    conn.execute_batch("PRAGMA journal_mode=WAL;")?;
-    conn.execute_batch("PRAGMA synchronous=NORMAL;")?;
-    
     sqlite_pragma::apply_optimized_pragmas(&conn)?;
     
-    run_migrations(&conn)?;
+    apply_initial_schema(&conn)?;
+    
+    // Debug: Verify token_signals schema
+    log::info!("🔍 Verifying token_signals schema:");
+    verify_signals_schema(&conn)?;
     
     Ok(())
 }
 
-/// Run SQL migrations from sql/ directory
-fn run_migrations(conn: &Connection) -> Result<(), Box<dyn Error>> {
-    let sql_dir = Path::new("sql");
+/// Apply the consolidated initial schema from 00_initial.sql
+fn apply_initial_schema(conn: &Connection) -> Result<(), Box<dyn Error>> {
+    log::info!("🗄️  Applying initial schema from 00_initial.sql");
     
-    if !sql_dir.exists() {
-        return Err("sql/ directory not found".into());
+    let schema_sql = include_str!("../sql/00_initial.sql");
+    
+    conn.execute_batch(schema_sql)?;
+    
+    log::info!("✅ Initial schema applied successfully");
+    
+    Ok(())
+}
+
+/// Verify token_signals table schema (Phase 6 verification)
+fn verify_signals_schema(conn: &Connection) -> Result<(), Box<dyn Error>> {
+    let mut stmt = conn.prepare("PRAGMA table_info(token_signals)")?;
+    
+    let columns: Vec<(String, String)> = stmt.query_map([], |row| {
+        Ok((row.get::<_, String>(1)?, row.get::<_, String>(2)?))
+    })?
+    .filter_map(|r| r.ok())
+    .collect();
+    
+    log::info!("   token_signals columns:");
+    for (name, col_type) in &columns {
+        log::info!("     - {} ({})", name, col_type);
     }
-
-    let mut sql_files: Vec<_> = fs::read_dir(sql_dir)?
-        .filter_map(|entry| entry.ok())
-        .filter(|entry| {
-            entry.path().extension()
-                .and_then(|ext| ext.to_str())
-                .map(|ext| ext == "sql")
-                .unwrap_or(false)
-        })
-        .collect();
-
-    sql_files.sort_by_key(|entry| entry.file_name());
-
-    let migration_count = sql_files.len();
-
-    for entry in sql_files {
-        let path = entry.path();
-        let sql = fs::read_to_string(&path)?;
-        
-        if let Err(e) = conn.execute_batch(&sql) {
-            log::warn!("⚠️  Migration {} failed (may be incomplete): {}", 
-                       path.file_name().unwrap().to_string_lossy(), e);
+    
+    // Verify expected Phase 6 columns exist
+    let expected_columns = vec![
+        "id", "mint", "signal_type", "strength", 
+        "window", "timestamp", "metadata", "created_at"
+    ];
+    
+    for expected in expected_columns {
+        if !columns.iter().any(|(name, _)| name == expected) {
+            log::error!("❌ Missing expected column: {}", expected);
+            return Err(format!("token_signals schema missing column: {}", expected).into());
         }
     }
-
-    log::info!("✅ Executed {} migrations successfully", migration_count);
-
+    
+    // Verify Phase 6 columns (should NOT exist: window_seconds, severity, score, details_json)
+    let obsolete_columns = vec!["window_seconds", "severity", "score", "details_json"];
+    
+    for obsolete in obsolete_columns {
+        if columns.iter().any(|(name, _)| name == obsolete) {
+            log::error!("❌ Obsolete column found: {}", obsolete);
+            return Err(format!("token_signals schema contains obsolete column: {}", obsolete).into());
+        }
+    }
+    
+    log::info!("✅ token_signals schema verified (Phase 6 format)");
+    
     Ok(())
 }
 
@@ -321,13 +340,8 @@ mod tests {
     fn create_test_db() -> Connection {
         let conn = Connection::open_in_memory().unwrap();
         
-        // Enable WAL mode (even for in-memory)
-        conn.execute_batch("PRAGMA journal_mode=WAL;").unwrap();
-        conn.execute_batch("PRAGMA synchronous=NORMAL;").unwrap();
-        
-        // Create tables
-        conn.execute_batch(include_str!("../sql/08_token_rolling_metrics.sql")).unwrap();
-        conn.execute_batch(include_str!("../sql/09_token_trades.sql")).unwrap();
+        // Apply consolidated schema
+        conn.execute_batch(include_str!("../sql/00_initial.sql")).unwrap();
         
         conn
     }
