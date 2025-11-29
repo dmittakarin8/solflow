@@ -14,6 +14,8 @@ fn test_pumpfun_buy_extraction() {
         token_decimals: 6,
         user_account: "user123".to_string(),
         source_program: "Pumpfun".to_string(),
+        is_bot: false,
+        is_dca: false,
     };
 
     assert_eq!(trade_event.direction, TradeDirection::Buy);
@@ -35,6 +37,8 @@ fn test_rolling_state_update() {
         token_decimals: 6,
         user_account: "buyer1".to_string(),
         source_program: "PumpSwap".to_string(),
+        is_bot: false,
+        is_dca: false,
     };
 
     rolling_state.add_trade(buy_trade);
@@ -62,6 +66,8 @@ fn test_rolling_state_buy_and_sell() {
         token_decimals: 6,
         user_account: "buyer1".to_string(),
         source_program: "Pumpfun".to_string(),
+        is_bot: false,
+        is_dca: false,
     };
 
     let sell_trade = TradeEvent {
@@ -73,6 +79,8 @@ fn test_rolling_state_buy_and_sell() {
         token_decimals: 6,
         user_account: "seller1".to_string(),
         source_program: "Pumpfun".to_string(),
+        is_bot: false,
+        is_dca: false,
     };
 
     rolling_state.add_trade(buy_trade);
@@ -101,6 +109,8 @@ fn test_rolling_state_eviction() {
         token_decimals: 6,
         user_account: "old_buyer".to_string(),
         source_program: "Moonshot".to_string(),
+        is_bot: false,
+        is_dca: false,
     };
 
     let new_trade = TradeEvent {
@@ -112,6 +122,8 @@ fn test_rolling_state_eviction() {
         token_decimals: 6,
         user_account: "new_buyer".to_string(),
         source_program: "Moonshot".to_string(),
+        is_bot: false,
+        is_dca: false,
     };
 
     rolling_state.add_trade(old_trade);
@@ -146,6 +158,8 @@ fn test_dca_tracking() {
         token_decimals: 6,
         user_account: "dca_user".to_string(),
         source_program: "JupiterDCA".to_string(),
+        is_bot: false,
+        is_dca: true,
     };
 
     rolling_state.add_trade(dca_trade);

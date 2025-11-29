@@ -8,7 +8,10 @@
 //! into a common TradeEvent format.
 
 use crate::types::{TradeDirection, TradeEvent};
-use carbon_core::{deserialize::ArrangeAccounts, instruction::InstructionProcessorInputType};
+use carbon_core::{
+    deserialize::ArrangeAccounts, 
+    instruction::{InstructionMetadata, InstructionProcessorInputType}
+};
 
 pub struct TradeExtractor;
 
@@ -207,20 +210,234 @@ impl TradeExtractor {
         }
     }
 
+    /// Helper to find the account index for a given pubkey in transaction metadata
+    fn get_account_index(
+        metadata: &InstructionMetadata,
+        user_pubkey: &solana_sdk::pubkey::Pubkey,
+    ) -> Option<usize> {
+        let tx_meta = &metadata.transaction_metadata;
+        
+        // Access account_keys from the versioned message
+        let account_keys = tx_meta.message.static_account_keys();
+        
+        // Convert Carbon addresses to Solana Pubkeys and find matching index
+        for (index, account_address) in account_keys.iter().enumerate() {
+            // Carbon uses its own address type, convert to Solana Pubkey
+            let account_bytes: [u8; 32] = account_address.as_ref().try_into().ok()?;
+            let account_pubkey = solana_sdk::pubkey::Pubkey::new_from_array(account_bytes);
+            
+            if &account_pubkey == user_pubkey {
+                log::debug!(
+                    "🔍 PUMPSWAP_USER_INDEX_FOUND | User: {} | Index: {}",
+                    user_pubkey,
+                    index
+                );
+                return Some(index);
+            }
+        }
+        
+        log::warn!(
+            "⚠️ USER_ACCOUNT_NOT_FOUND | User: {} | Total accounts: {}",
+            user_pubkey,
+            account_keys.len()
+        );
+        None
+    }
+
+    /// Extract SOL delta from transaction metadata for a given user pubkey
+    fn compute_sol_delta_from_metadata(
+        metadata: &InstructionMetadata,
+        user_pubkey: &solana_sdk::pubkey::Pubkey,
+    ) -> Option<f64> {
+        let tx_meta = &metadata.transaction_metadata;
+        let meta = &tx_meta.meta;
+
+        // Find the account index dynamically
+        let user_account_index = Self::get_account_index(metadata, user_pubkey)?;
+
+        let pre_balance = meta.pre_balances.get(user_account_index).copied()?;
+        let post_balance = meta.post_balances.get(user_account_index).copied()?;
+        let fee = if user_account_index == 0 { meta.fee } else { 0 };
+
+        let sol_delta_lamports = (post_balance as i128 - pre_balance as i128) + fee as i128;
+        let sol_delta = sol_delta_lamports.abs() as f64 / 1_000_000_000.0;
+
+        log::debug!(
+            "💰 SOL_DELTA_COMPUTED_CORRECTLY | User: {} | Account[{}] | Pre: {} | Post: {} | Fee: {} | Delta: {:.6} SOL",
+            user_pubkey,
+            user_account_index,
+            pre_balance,
+            post_balance,
+            fee,
+            sol_delta
+        );
+
+        Some(sol_delta)
+    }
+
+    /// Extract a TradeEvent from a PumpSwap Buy instruction
+    pub fn extract_pumpswap_buy(
+        accounts: &carbon_pump_swap_decoder::instructions::buy::BuyInstructionAccounts,
+        instruction: &carbon_pump_swap_decoder::instructions::buy::Buy,
+        metadata: &InstructionMetadata,
+    ) -> Option<TradeEvent> {
+        let timestamp = metadata.transaction_metadata.block_time.unwrap_or(0);
+        
+        // Convert Carbon address to Solana Pubkey for user account
+        let user_bytes: [u8; 32] = accounts.user.as_ref().try_into().ok()?;
+        let user_pubkey = solana_sdk::pubkey::Pubkey::new_from_array(user_bytes);
+
+        // Compute SOL delta using dynamic account index lookup
+        let sol_amount = Self::compute_sol_delta_from_metadata(metadata, &user_pubkey)
+            .unwrap_or_else(|| {
+                log::warn!(
+                    "⚠️ SOL_DELTA_FALLBACK | Variant: Buy | Using instruction max_quote_amount_in"
+                );
+                instruction.max_quote_amount_in as f64 / 1_000_000_000.0
+            });
+
+        log::info!(
+            "🟢 PUMPSWAP_VARIANT_WITH_SOL_DELTA | Variant: Buy | User: {} | Mint: {} | SOL: {:.6}",
+            accounts.user,
+            accounts.base_mint,
+            sol_amount
+        );
+
+        Some(TradeEvent {
+            timestamp,
+            mint: accounts.base_mint.to_string(),
+            direction: TradeDirection::Buy,
+            sol_amount,
+            token_amount: instruction.base_amount_out as f64,
+            token_decimals: 6,
+            user_account: accounts.user.to_string(),
+            source_program: "PumpSwap".to_string(),
+            is_bot: false,
+            is_dca: false,
+        })
+    }
+
+    /// Extract a TradeEvent from a PumpSwap Sell instruction
+    pub fn extract_pumpswap_sell(
+        accounts: &carbon_pump_swap_decoder::instructions::sell::SellInstructionAccounts,
+        instruction: &carbon_pump_swap_decoder::instructions::sell::Sell,
+        metadata: &InstructionMetadata,
+    ) -> Option<TradeEvent> {
+        let timestamp = metadata.transaction_metadata.block_time.unwrap_or(0);
+        
+        // Convert Carbon address to Solana Pubkey for user account
+        let user_bytes: [u8; 32] = accounts.user.as_ref().try_into().ok()?;
+        let user_pubkey = solana_sdk::pubkey::Pubkey::new_from_array(user_bytes);
+
+        // Compute SOL delta using dynamic account index lookup
+        let sol_amount = Self::compute_sol_delta_from_metadata(metadata, &user_pubkey)
+            .unwrap_or_else(|| {
+                log::warn!(
+                    "⚠️ SOL_DELTA_FALLBACK | Variant: Sell | Using instruction min_quote_amount_out"
+                );
+                instruction.min_quote_amount_out as f64 / 1_000_000_000.0
+            });
+
+        log::info!(
+            "🟢 PUMPSWAP_VARIANT_WITH_SOL_DELTA | Variant: Sell | User: {} | Mint: {} | SOL: {:.6}",
+            accounts.user,
+            accounts.base_mint,
+            sol_amount
+        );
+
+        Some(TradeEvent {
+            timestamp,
+            mint: accounts.base_mint.to_string(),
+            direction: TradeDirection::Sell,
+            sol_amount,
+            token_amount: instruction.base_amount_in as f64,
+            token_decimals: 6,
+            user_account: accounts.user.to_string(),
+            source_program: "PumpSwap".to_string(),
+            is_bot: false,
+            is_dca: false,
+        })
+    }
+
+    /// Extract a TradeEvent from a PumpSwap BuyExactQuoteIn instruction
+    pub fn extract_pumpswap_buy_exact_quote_in(
+        accounts: &carbon_pump_swap_decoder::instructions::buy_exact_quote_in::BuyExactQuoteInInstructionAccounts,
+        instruction: &carbon_pump_swap_decoder::instructions::buy_exact_quote_in::BuyExactQuoteIn,
+        metadata: &InstructionMetadata,
+    ) -> Option<TradeEvent> {
+        let timestamp = metadata.transaction_metadata.block_time.unwrap_or(0);
+        
+        // Convert Carbon address to Solana Pubkey for user account
+        let user_bytes: [u8; 32] = accounts.user.as_ref().try_into().ok()?;
+        let user_pubkey = solana_sdk::pubkey::Pubkey::new_from_array(user_bytes);
+
+        // Compute SOL delta using dynamic account index lookup
+        let sol_amount = Self::compute_sol_delta_from_metadata(metadata, &user_pubkey)
+            .unwrap_or_else(|| {
+                log::warn!(
+                    "⚠️ SOL_DELTA_FALLBACK | Variant: BuyExactQuoteIn | Using instruction spendable_quote_in"
+                );
+                instruction.spendable_quote_in as f64 / 1_000_000_000.0
+            });
+
+        log::info!(
+            "🟢 PUMPSWAP_VARIANT_WITH_SOL_DELTA | Variant: BuyExactQuoteIn | User: {} | Mint: {} | SOL: {:.6}",
+            accounts.user,
+            accounts.base_mint,
+            sol_amount
+        );
+
+        Some(TradeEvent {
+            timestamp,
+            mint: accounts.base_mint.to_string(),
+            direction: TradeDirection::Buy,
+            sol_amount,
+            token_amount: instruction.min_base_amount_out as f64,
+            token_decimals: 6,
+            user_account: accounts.user.to_string(),
+            source_program: "PumpSwap".to_string(),
+            is_bot: false,
+            is_dca: false,
+        })
+    }
+
     /// Unified adapter for PumpSwap instructions
     pub fn extract_from_pumpswap(
         input: &InstructionProcessorInputType<carbon_pump_swap_decoder::instructions::PumpSwapInstruction>,
     ) -> Option<TradeEvent> {
-        let (_metadata, decoded_instruction, _nested_instructions, _raw_instruction) = input;
+        let (metadata, decoded_instruction, _nested_instructions, _raw_instruction) = input;
 
         match &decoded_instruction.data {
+            // Legacy event variants (kept for backward compatibility)
             carbon_pump_swap_decoder::instructions::PumpSwapInstruction::BuyEvent(event) => {
                 Self::extract_pumpswap_buy_event(event)
             }
             carbon_pump_swap_decoder::instructions::PumpSwapInstruction::SellEvent(event) => {
                 Self::extract_pumpswap_sell_event(event)
             }
-            _ => None,
+            // New swap instruction variants (primary live activity)
+            carbon_pump_swap_decoder::instructions::PumpSwapInstruction::Buy(buy) => {
+                let accounts = carbon_pump_swap_decoder::instructions::buy::Buy::arrange_accounts(
+                    &decoded_instruction.accounts,
+                )?;
+                Self::extract_pumpswap_buy(&accounts, buy, metadata)
+            }
+            carbon_pump_swap_decoder::instructions::PumpSwapInstruction::Sell(sell) => {
+                let accounts = carbon_pump_swap_decoder::instructions::sell::Sell::arrange_accounts(
+                    &decoded_instruction.accounts,
+                )?;
+                Self::extract_pumpswap_sell(&accounts, sell, metadata)
+            }
+            carbon_pump_swap_decoder::instructions::PumpSwapInstruction::BuyExactQuoteIn(buy_exact) => {
+                let accounts = carbon_pump_swap_decoder::instructions::buy_exact_quote_in::BuyExactQuoteIn::arrange_accounts(
+                    &decoded_instruction.accounts,
+                )?;
+                Self::extract_pumpswap_buy_exact_quote_in(&accounts, buy_exact, metadata)
+            }
+            _ => {
+                log::debug!("⚠️ PUMPSWAP_VARIANT_UNHANDLED | Variant: {:?}", decoded_instruction.data);
+                None
+            }
         }
     }
 
